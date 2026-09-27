@@ -6,6 +6,13 @@ const getBaseUrl = () => {
   if (envUrl && typeof envUrl === 'string' && envUrl.trim().length > 0) {
     return envUrl.trim().replace(/\/+$/, '');
   }
+  // When running on Vercel or any remote frontend without custom env, route directly to Render backend
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    if (host.includes('vercel.app') || (!host.includes('localhost') && !host.includes('127.0.0.1') && !host.includes('onrender.com'))) {
+      return 'https://outbox-assessment-g02v.onrender.com';
+    }
+  }
   return '';
 };
 
