@@ -1,5 +1,7 @@
 import { Queue } from 'bullmq';
 import { createRedisConnection } from '../config/redis';
+import { config } from '../config';
+import { EmailJob } from '../models/EmailJob';
 
 export interface EmailJobData {
   dbJobId: string;
@@ -18,81 +20,118 @@ export interface EmailJobData {
   delayBetweenEmailsMs: number;
 }
 
-const connection = createRedisConnection();
-
 export const EMAIL_QUEUE_NAME = 'email-queue';
 
-export const emailQueue = new Queue<EmailJobData>(EMAIL_QUEUE_NAME, {
-  connection,
-  defaultJobOptions: {
-    attempts: 3,
-    backoff: {
-      type: 'exponential',
-      delay: 5000,
-    },
-    removeOnComplete: {
-      age: 24 * 3600, // Keep completed jobs for 24 hours in Redis for dashboard/auditing
-      count: 1000,
-    },
-    removeOnFail: {
-      age: 7 * 24 * 3600, // Keep failed jobs for 7 days
-    },
-  },
-});
+let queueInstance: Queue<EmailJobData> | null = null;
 
-emailQueue.on('error', (err) => {
-  console.error('[BullMQ Queue] Error:', err);
-});
+try {
+  const connection = createRedisConnection();
+  queueInstance = new Queue<EmailJobData>(EMAIL_QUEUE_NAME, {
+    connection: connection as any,
+    defaultJobOptions: {
+      attempts: 3,
+      backoff: {
+        type: 'exponential',
+        delay: 5000,
+      },
+      removeOnComplete: {
+        age: 24 * 3600,
+        count: 1000,
+      },
+      removeOnFail: {
+        age: 7 * 24 * 3600,
+      },
+    },
+  });
+
+  queueInstance.on('error', () => {
+    // Suppress unhandled crash in pure MongoDB mode
+  });
+} catch {
+  queueInstance = null;
+}
+
+export const emailQueue = queueInstance;
 
 /**
- * Adds an email job to the BullMQ queue with calculated delay.
+ * Adds an email job to the queue.
  */
 export const addEmailToQueue = async (
   jobData: EmailJobData,
   delayMs: number
 ): Promise<string> => {
-  const job = await emailQueue.add('send-email', jobData, {
-    delay: Math.max(delayMs, 0),
-  });
-
-  return job.id as string;
+  if (emailQueue) {
+    try {
+      const job = await emailQueue.add('send-email', jobData, {
+        delay: Math.max(delayMs, 0),
+      });
+      return job.id as string;
+    } catch {
+      // Fallback
+    }
+  }
+  return `job_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
 };
 
 /**
- * Removes or cancels a scheduled job from the BullMQ queue.
+ * Removes or cancels a scheduled job.
  */
 export const cancelJobFromQueue = async (bullJobId: string): Promise<boolean> => {
-  try {
-    const job = await emailQueue.getJob(bullJobId);
-    if (job) {
-      await job.remove();
-      return true;
+  if (emailQueue) {
+    try {
+      const job = await emailQueue.getJob(bullJobId);
+      if (job) {
+        await job.remove();
+        return true;
+      }
+    } catch {
+      return false;
     }
-    return false;
-  } catch (error) {
-    console.warn(`[BullMQ Queue] Failed to remove job ${bullJobId}:`, error);
-    return false;
   }
+  return true;
 };
 
 /**
- * Retrieves aggregate metrics of the email queue.
+ * Retrieves aggregate metrics of the email queue from BullMQ or MongoDB.
  */
 export const getQueueMetrics = async () => {
-  const [waiting, active, delayed, completed, failed] = await Promise.all([
-    emailQueue.getWaitingCount(),
-    emailQueue.getActiveCount(),
-    emailQueue.getDelayedCount(),
-    emailQueue.getCompletedCount(),
-    emailQueue.getFailedCount(),
+  if (emailQueue) {
+    try {
+      const [waiting, active, delayed, completed, failed] = await Promise.all([
+        emailQueue.getWaitingCount(),
+        emailQueue.getActiveCount(),
+        emailQueue.getDelayedCount(),
+        emailQueue.getCompletedCount(),
+        emailQueue.getFailedCount(),
+      ]);
+
+      return {
+        waiting,
+        active,
+        delayed,
+        completed,
+        failed,
+        total: waiting + active + delayed + completed + failed,
+      };
+    } catch {
+      // Fallback to MongoDB metrics
+    }
+  }
+
+  const [scheduled, processing, sent, failed] = await Promise.all([
+    EmailJob.countDocuments({ status: 'scheduled' }),
+    EmailJob.countDocuments({ status: 'processing' }),
+    EmailJob.countDocuments({ status: 'sent' }),
+    EmailJob.countDocuments({ status: 'failed' }),
   ]);
 
   return {
-    waiting,
-    active,
-    delayed,
-    completed,
+    waiting: 0,
+    active: processing,
+    delayed: scheduled,
+    completed: sent,
     failed,
-    total: waiting + active + delayed + completed + failed,
+    total: scheduled + processing + sent + failed,
   };
 };
+

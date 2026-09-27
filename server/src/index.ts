@@ -34,16 +34,20 @@ import fs from 'fs';
 const uploadsDir = path.resolve(__dirname, '../uploads');
 app.use('/uploads', express.static(uploadsDir));
 
-// BullMQ Live Monitoring Dashboard (Mounted at /admin/queues as requested in PRD)
+// BullMQ / Queue Monitoring Dashboard (Mounted at /admin/queues as requested in PRD)
 const serverAdapter = new ExpressAdapter();
 serverAdapter.setBasePath('/admin/queues');
 
-createBullBoard({
-  queues: [new BullMQAdapter(emailQueue)],
-  serverAdapter: serverAdapter,
-});
+try {
+  createBullBoard({
+    queues: emailQueue ? [new BullMQAdapter(emailQueue)] : [],
+    serverAdapter: serverAdapter,
+  });
+  app.use('/admin/queues', serverAdapter.getRouter());
+} catch (e: any) {
+  console.warn('[BullBoard] Note: Standalone mode active.');
+}
 
-app.use('/admin/queues', serverAdapter.getRouter());
 
 // Mount API Routes
 app.use('/api', apiRoutes);
