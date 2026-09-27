@@ -28,6 +28,8 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 
+import fs from 'fs';
+
 // Serve local uploads statically
 const uploadsDir = path.resolve(__dirname, '../uploads');
 app.use('/uploads', express.static(uploadsDir));
@@ -55,6 +57,39 @@ app.get('/health', (req, res) => {
     uptime: process.uptime(),
   });
 });
+
+// Serve built React client in production
+const potentialDistPaths = [
+  path.resolve(__dirname, '../../client/dist'),
+  path.resolve(__dirname, '../../../client/dist'),
+  path.resolve(process.cwd(), 'client/dist'),
+  path.resolve(process.cwd(), '../client/dist'),
+];
+
+let clientDistPath: string | null = null;
+for (const p of potentialDistPaths) {
+  if (fs.existsSync(p)) {
+    clientDistPath = p;
+    break;
+  }
+}
+
+if (clientDistPath) {
+  app.use(express.static(clientDistPath));
+  app.get('*', (req, res, next) => {
+    if (
+      req.path.startsWith('/api') ||
+      req.path.startsWith('/admin') ||
+      req.path.startsWith('/health') ||
+      req.path.startsWith('/uploads')
+    ) {
+      return next();
+    }
+    res.sendFile(path.join(clientDistPath!, 'index.html'));
+  });
+  console.log(`[Static] Serving frontend production bundle from: ${clientDistPath}`);
+}
+
 
 // Centralized error handler
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
