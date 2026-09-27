@@ -152,13 +152,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
         >
           <div className="flex items-center gap-3">
             <Activity className={`w-4 h-4 ${currentTab === 'queue' ? 'text-[#00A859]' : 'text-gray-400'}`} />
-            <span>BullMQ Monitor</span>
+            <span>CRM</span>
           </div>
           <span className="flex h-2 w-2 relative">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
           </span>
         </button>
+
 
         <button
           onClick={() => setCurrentTab('settings')}

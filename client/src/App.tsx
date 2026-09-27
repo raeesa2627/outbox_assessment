@@ -126,9 +126,10 @@ export const App: React.FC = () => {
         };
       case 'queue':
         return {
-          title: 'Queue Analytics & Telemetry',
-          subtitle: 'Live BullMQ and Redis monitoring powered by @bull-board',
+          title: 'CRM & Queue Operations',
+          subtitle: 'Live lead dispatch, job telemetry, and BullMQ analytics powered by @bull-board',
         };
+
       case 'settings':
         return {
           title: 'Slack Webhooks & Settings',

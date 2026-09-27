@@ -79,8 +79,9 @@ export const QueueMonitorView: React.FC<QueueMonitorViewProps> = ({
           <div className="flex items-center gap-2">
             <Activity className="w-4 h-4 text-emerald-600" />
             <span className="text-sm font-bold text-gray-900">
-              Live BullMQ Queue Monitor (@bull-board)
+              CRM & Queue Operations Dashboard (@bull-board)
             </span>
+
           </div>
 
           <div className="flex items-center gap-3">
