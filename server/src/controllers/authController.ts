@@ -47,8 +47,15 @@ export const googleLogin = async (req: Request, res: Response): Promise<void> =>
     }
 
     if (!email) {
-      // In case verifyIdToken failed or Google Client ID is not provided, decode JWT safely
-      const decoded: any = jwt.decode(credential);
+      let decoded: any = jwt.decode(credential);
+      if (!decoded || !decoded.email) {
+        try {
+          const base64Url = credential.split('.')[1];
+          const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+          decoded = JSON.parse(Buffer.from(base64, 'base64').toString('utf8'));
+        } catch (e) {}
+      }
+
       if (!decoded || !decoded.email) {
         res.status(400).json({ success: false, message: 'Could not decode Google token' });
         return;
