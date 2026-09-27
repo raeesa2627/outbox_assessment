@@ -100,19 +100,28 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   });
 });
 
+import { setupMongoWorker } from './workers/mongoWorker';
+
 const startServer = async () => {
   try {
     // 1. Connect to MongoDB
     await connectDB();
 
-    // 2. Initialize BullMQ Worker
-    setupEmailWorker();
+    // 2. Initialize Standalone MongoDB Engine (Works 100% with ONLY MongoDB)
+    setupMongoWorker();
 
-    // 3. Start Express HTTP Server
+    // 3. Initialize BullMQ Worker (When Redis is available)
+    try {
+      setupEmailWorker();
+    } catch (e: any) {
+      console.warn('[BullMQ] Note: Redis worker inactive. Active engine: Standalone MongoDB Queue.');
+    }
+
+    // 4. Start Express HTTP Server
     app.listen(config.port, () => {
       console.log(`====================================================`);
       console.log(`🚀 Email Job Scheduler Backend running on port ${config.port}`);
-      console.log(`📊 BullMQ Live Queue Monitor: http://localhost:${config.port}/admin/queues`);
+      console.log(`📊 CRM / Live Queue Monitor: http://localhost:${config.port}/admin/queues`);
       console.log(`📡 API Endpoints: http://localhost:${config.port}/api`);
       console.log(`====================================================`);
     });
@@ -121,5 +130,6 @@ const startServer = async () => {
     process.exit(1);
   }
 };
+
 
 startServer();

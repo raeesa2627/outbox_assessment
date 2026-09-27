@@ -20,6 +20,7 @@
     "express": "^4.21.2",
     "google-auth-library": "^9.15.1",
     "ioredis": "^5.5.0",
+    "ioredis-mock": "^8.13.1",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.12.1",
     "multer": "^1.4.5-lts.1",

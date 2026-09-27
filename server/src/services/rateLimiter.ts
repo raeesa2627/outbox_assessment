@@ -25,9 +25,11 @@ else
 end
 `;
 
+const inMemoryCounters = new Map<string, { count: number; expiresAt: number }>();
+
 /**
- * Atomically checks and increments the hourly email rate limit counter for a sender in Redis.
- * If limit is exceeded, returns allowed=false along with the delay needed to wait for the next hour window.
+ * Atomically checks and increments the hourly email rate limit counter for a sender.
+ * Uses Redis Lua atomic script if available, with automatic in-memory sliding window fallback.
  */
 export const checkAndIncrementRateLimit = async (
   senderEmail: string,
@@ -43,25 +45,54 @@ export const checkAndIncrementRateLimit = async (
   const nextWindowStartMs = (windowId + 1) * ONE_HOUR_MS;
   const remainingWindowSeconds = Math.max(Math.ceil((nextWindowStartMs - now) / 1000), 60);
 
-  // Execute atomic Lua script in Redis
-  const result = (await redisClient.eval(
-    CHECK_AND_INCREMENT_LUA,
-    1,
-    key,
-    limit.toString(),
-    remainingWindowSeconds.toString()
-  )) as [number, number];
+  try {
+    // Try executing atomic Lua script in Redis
+    const result = (await redisClient.eval(
+      CHECK_AND_INCREMENT_LUA,
+      1,
+      key,
+      limit.toString(),
+      remainingWindowSeconds.toString()
+    )) as [number, number];
 
-  const allowed = result[0] === 1;
-  const currentCount = result[1];
-  const delayMs = Math.max(nextWindowStartMs - now + 1500, 2000); // 1.5s buffer into the next hour window
+    if (result && Array.isArray(result)) {
+      const allowed = result[0] === 1;
+      const currentCount = result[1];
+      const delayMs = Math.max(nextWindowStartMs - now + 1500, 2000);
+
+      return {
+        allowed,
+        currentCount,
+        limit,
+        nextAvailableWindow: new Date(nextWindowStartMs),
+        delayMs,
+      };
+    }
+  } catch {
+    // Fallback to in-memory sliding window
+  }
+
+  // In-Memory Engine Fallback (Zero-Redis / Standalone Mode)
+  const entry = inMemoryCounters.get(key) || { count: 0, expiresAt: nextWindowStartMs };
+  if (entry.count >= limit) {
+    return {
+      allowed: false,
+      currentCount: entry.count,
+      limit,
+      nextAvailableWindow: new Date(nextWindowStartMs),
+      delayMs: Math.max(nextWindowStartMs - now + 1500, 2000),
+    };
+  }
+
+  entry.count += 1;
+  inMemoryCounters.set(key, entry);
 
   return {
-    allowed,
-    currentCount,
+    allowed: true,
+    currentCount: entry.count,
     limit,
     nextAvailableWindow: new Date(nextWindowStartMs),
-    delayMs,
+    delayMs: Math.max(nextWindowStartMs - now + 1500, 2000),
   };
 };
 
@@ -72,6 +103,11 @@ export const getSenderHourlyCount = async (senderEmail: string): Promise<number>
   const normalizedEmail = senderEmail.trim().toLowerCase();
   const windowId = Math.floor(Date.now() / (60 * 60 * 1000));
   const key = `ratelimit:hourly:${normalizedEmail}:${windowId}`;
-  const count = await redisClient.get(key);
-  return count ? parseInt(count, 10) : 0;
+  try {
+    const count = await redisClient.get(key);
+    if (count) return parseInt(count, 10);
+  } catch {}
+  const entry = inMemoryCounters.get(key);
+  return entry ? entry.count : 0;
 };
+

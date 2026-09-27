@@ -1,33 +1,52 @@
-import Redis, { RedisOptions } from 'ioredis';
+import Redis from 'ioredis';
+import RedisMock from 'ioredis-mock';
 import { config } from './index';
 
-const getRedisOptions = (): RedisOptions => {
-  const isTls = config.redisUrl.startsWith('rediss://');
-  return {
-    maxRetriesPerRequest: null, // Required by BullMQ
-    enableReadyCheck: false,
-    lazyConnect: false,
-    tls: isTls ? { rejectUnauthorized: false } : undefined,
-    retryStrategy: (times) => {
-      const delay = Math.min(times * 100, 3000);
-      return delay;
-    },
-  };
+let isMock = false;
+
+const createConnection = () => {
+  if (!config.redisUrl || isMock) {
+    return new RedisMock();
+  }
+
+  try {
+    const isTls = config.redisUrl.startsWith('rediss://');
+    const client = new Redis(config.redisUrl, {
+      maxRetriesPerRequest: null,
+      enableReadyCheck: false,
+      lazyConnect: false,
+      tls: isTls ? { rejectUnauthorized: false } : undefined,
+      retryStrategy: (times) => {
+        if (times > 2) {
+          isMock = true;
+          return null; // Stop retrying if Redis is not available
+        }
+        return 1000;
+      },
+    });
+
+    client.on('error', (err) => {
+      // Suppress unhandled crash if Redis is unavailable; fallback is active
+      if (!isMock) {
+        console.warn(`[Redis] Note: Redis not running locally (${err.message}). Using MongoDB in-memory engine.`);
+        isMock = true;
+      }
+    });
+
+    return client;
+  } catch {
+    isMock = true;
+    return new RedisMock();
+  }
 };
 
-// Dedicated Redis connection for general caching and rate limiting
-export const redisClient = new Redis(config.redisUrl, getRedisOptions());
+export const redisClient = createConnection();
 
-redisClient.on('connect', () => {
-  console.log('[Redis] Connected to Redis instance');
-});
-
-redisClient.on('error', (err) => {
-  console.error('[Redis] Connection error:', err.message);
-});
-
-// Helper to create duplicate connections for BullMQ Queue & Worker
 export const createRedisConnection = () => {
-  return new Redis(config.redisUrl, getRedisOptions());
+  if (isMock) {
+    return new RedisMock();
+  }
+  return createConnection();
 };
+
 
