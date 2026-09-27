@@ -1,0 +1,30 @@
+{
+  "name": "reachinbox-email-scheduler",
+  "version": "1.0.0",
+  "description": "Production-grade Full-Stack Email Job Scheduler with BullMQ, Redis, MongoDB, and React",
+  "private": true,
+  "scripts": {
+    "install:all": "npm install && npm install --prefix server && npm install --prefix client",
+    "dev:server": "npm run dev --prefix server",
+    "dev:client": "npm run dev --prefix client",
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "build:server": "npm run build --prefix server",
+    "build:client": "npm run build --prefix client",
+    "build": "npm run build:server && npm run build:client",
+    "start": "npm run start --prefix server"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "keywords": [
+    "reachinbox",
+    "email-scheduler",
+    "bullmq",
+    "redis",
+    "mongodb",
+    "react",
+    "typescript"
+  ],
+  "author": "Raeesa",
+  "license": "MIT"
+}
