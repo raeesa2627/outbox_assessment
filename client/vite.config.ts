@@ -11,11 +11,11 @@ export default defineConfig({
     },
     proxy: {
       '/api': {
-        target: 'http://localhost:5000',
+        target: 'https://outbox-assessment-g02v.onrender.com',
         changeOrigin: true,
       },
       '/uploads': {
-        target: 'http://localhost:5000',
+        target: 'https://outbox-assessment-g02v.onrender.com',
         changeOrigin: true,
       },
     },
