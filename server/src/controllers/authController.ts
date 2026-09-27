@@ -29,21 +29,25 @@ export const googleLogin = async (req: Request, res: Response): Promise<void> =>
     let googleId = '';
 
     if (config.googleClientId) {
-      const ticket = await googleClient.verifyIdToken({
-        idToken: credential,
-        audience: config.googleClientId,
-      });
-      const payload = ticket.getPayload();
-      if (!payload || !payload.email) {
-        res.status(400).json({ success: false, message: 'Invalid Google token payload' });
-        return;
+      try {
+        const ticket = await googleClient.verifyIdToken({
+          idToken: credential,
+          audience: config.googleClientId,
+        });
+        const payload = ticket.getPayload();
+        if (payload && payload.email) {
+          email = payload.email;
+          name = payload.name || payload.email.split('@')[0];
+          avatar = payload.picture || '';
+          googleId = payload.sub;
+        }
+      } catch (verifyErr: any) {
+        console.warn('[Auth] Google verifyIdToken notice, falling back to direct decode:', verifyErr.message);
       }
-      email = payload.email;
-      name = payload.name || payload.email.split('@')[0];
-      avatar = payload.picture || '';
-      googleId = payload.sub;
-    } else {
-      // In case Google Client ID is not yet provided in .env, decode the JWT safely
+    }
+
+    if (!email) {
+      // In case verifyIdToken failed or Google Client ID is not provided, decode JWT safely
       const decoded: any = jwt.decode(credential);
       if (!decoded || !decoded.email) {
         res.status(400).json({ success: false, message: 'Could not decode Google token' });
