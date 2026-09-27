@@ -42,10 +42,12 @@ flowchart TB
     subgraph Integrations["External Services & Integrations"]
         GoogleAuth["Google Identity Services (OAuth 2.0)"]
         Cloudinary["Cloudinary CDN / Local Fallback"]
-        EtherealSMTP["Ethereal SMTP / Nodemailer\n(Live Rendered HTML Email Previews)"]
+        ResendAPI["Resend Mail API (HTTPS / Render-Safe)"]
+        EtherealSMTP["Ethereal SMTP / Nodemailer (Sandbox Previews)"]
         Slack["Slack Webhooks\n(Rate Limit & Resilience Alerts)"]
         BullBoard["@bull-board Admin UI (/admin/queues)"]
     end
+
 
     %% Client Interactions
     UI --> Router

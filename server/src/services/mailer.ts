@@ -1,13 +1,13 @@
+import { Resend } from 'resend';
 import nodemailer from 'nodemailer';
 import { config } from '../config';
 
+let resendClient: Resend | null = null;
 let transporter: nodemailer.Transporter | null = null;
 let testAccount: nodemailer.TestAccount | null = null;
 
 /**
- * Initializes and returns a singleton Nodemailer transporter.
- * If custom SMTP credentials are provided in config, it uses them (delivers to real inboxes).
- * Otherwise, it initializes an Ethereal SMTP test account automatically.
+ * Initializes and returns a singleton Nodemailer transporter for fallback / sandbox testing.
  */
 export const getMailTransporter = async (): Promise<nodemailer.Transporter> => {
   if (transporter) {
@@ -27,7 +27,6 @@ export const getMailTransporter = async (): Promise<nodemailer.Transporter> => {
       });
       console.log(`[Mailer] ✅ Real SMTP transport initialized with host: ${config.smtp.host}`);
     } else {
-      // Default to Gmail service if user and app password provided
       transporter = nodemailer.createTransport({
         service: 'gmail',
         auth: {
@@ -78,15 +77,56 @@ export interface SendEmailResult {
 }
 
 /**
- * Sends an email using the active Nodemailer transporter.
- * If real SMTP is configured, sends to real inbox.
- * If Ethereal test account is used, extracts and stores the Ethereal web preview URL.
+ * Sends an email using:
+ * 1. Resend API (HTTP port 443 — 100% Render and Cloud deployment compatible) if RESEND_API_KEY is configured.
+ * 2. Real SMTP / Gmail if SMTP credentials provided.
+ * 3. Ethereal Test sandbox as automated testing fallback.
  */
 export const sendEmail = async (payload: SendEmailPayload): Promise<SendEmailResult> => {
+  // Option 1: Resend Mail API (Primary for Production & Render)
+  if (config.resendApiKey) {
+    try {
+      if (!resendClient) {
+        resendClient = new Resend(config.resendApiKey);
+      }
+
+      const fromAddress = config.resendFromEmail || 'onboarding@resend.dev';
+      const resendAttachments = payload.attachments?.map((att) => ({
+        filename: att.filename,
+        path: att.path,
+      }));
+
+      const { data, error } = await resendClient.emails.send({
+        from: fromAddress,
+        replyTo: payload.from,
+        to: payload.to,
+        subject: payload.subject,
+        html: payload.html,
+        attachments: resendAttachments,
+      });
+
+      if (error) {
+        console.error('[Mailer] Resend API Error:', error);
+        throw new Error(`Resend Delivery Failed: ${error.message}`);
+      }
+
+      const messageId = data?.id || `resend_${Date.now()}`;
+      console.log(`[Mailer] 🚀 Resend delivered email to: ${payload.to} | Message ID: ${messageId}`);
+
+      return {
+        messageId,
+        previewUrl: '', // Delivered directly to recipient inbox
+      };
+    } catch (err: any) {
+      console.error('[Mailer] Resend error, trying fallback:', err.message);
+      // If Resend fails (e.g. unverified test recipient on free tier), fall back to Nodemailer
+    }
+  }
+
+  // Option 2 & 3: Nodemailer (Custom SMTP or Ethereal Sandbox fallback)
   const mailer = await getMailTransporter();
   const isRealSMTP = Boolean(config.smtp.user && config.smtp.pass);
 
-  // For real SMTP, use authenticated user as from address or envelope
   const mailOptions: nodemailer.SendMailOptions = {
     from: isRealSMTP ? `"${payload.from.split('@')[0]}" <${config.smtp.user}>` : payload.from,
     replyTo: payload.from,
@@ -97,10 +137,10 @@ export const sendEmail = async (payload: SendEmailPayload): Promise<SendEmailRes
   };
 
   const info = await mailer.sendMail(mailOptions);
-
   const previewUrl = nodemailer.getTestMessageUrl(info) || '';
+
   if (isRealSMTP) {
-    console.log(`[Mailer] 📬 REAL EMAIL DELIVERED to: ${payload.to} | Message ID: ${info.messageId}`);
+    console.log(`[Mailer] 📬 SMTP DELIVERED to: ${payload.to} | Message ID: ${info.messageId}`);
   } else {
     console.log(`[Mailer] 🧪 Ethereal Sandbox email sent to: ${payload.to} | Preview: ${previewUrl}`);
   }
@@ -110,4 +150,5 @@ export const sendEmail = async (payload: SendEmailPayload): Promise<SendEmailRes
     previewUrl: previewUrl ? previewUrl.toString() : '',
   };
 };
+
 

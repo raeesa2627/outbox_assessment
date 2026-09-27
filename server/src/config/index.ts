@@ -46,7 +46,11 @@ export const config = {
     apiSecret: process.env.CLOUDINARY_API_SECRET || '',
   },
 
-  // Ethereal / Custom SMTP
+  // Resend Mail API (Production-Ready HTTP API)
+  resendApiKey: process.env.RESEND_API_KEY || '',
+  resendFromEmail: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
+
+  // Ethereal / Custom SMTP (Fallback)
   smtp: {
     host: process.env.SMTP_HOST || '',
     port: parseInt(process.env.SMTP_PORT || '587', 10),
@@ -54,3 +58,4 @@ export const config = {
     pass: process.env.SMTP_PASS || '',
   }
 };
+
