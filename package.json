@@ -4,6 +4,7 @@
   "description": "Production-grade Full-Stack Email Job Scheduler with BullMQ, Redis, MongoDB, and React",
   "private": true,
   "scripts": {
+    "postinstall": "npm install --prefix server && npm install --prefix client",
     "install:all": "npm install && npm install --prefix server && npm install --prefix client",
     "dev:server": "npm run dev --prefix server",
     "dev:client": "npm run dev --prefix client",
@@ -13,6 +14,7 @@
     "build": "npm run build:server && npm run build:client",
     "start": "npm run start --prefix server"
   },
+
   "devDependencies": {
     "concurrently": "^9.1.2"
   },
