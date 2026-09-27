@@ -7,6 +7,17 @@ A production-grade, distributed **Email Job Scheduler** built for the Outbox Lab
 
 ---
 
+## 🌐 Live Deployments & Assessment Links
+
+| Service | URL | Description |
+| :--- | :--- | :--- |
+| **Frontend (Vercel)** | [https://outbox-assessment-lime.vercel.app/](https://outbox-assessment-lime.vercel.app/) | Production React 19 Client with Tailwind & Framer Motion |
+| **Backend API (Render)** | [https://outbox-assessment-g02v.onrender.com](https://outbox-assessment-g02v.onrender.com) | Express API, Resend Dispatch, & Health Check |
+| **CRM / Queue Dashboard** | [https://outbox-assessment-g02v.onrender.com/admin/queues](https://outbox-assessment-g02v.onrender.com/admin/queues) | Live BullMQ / Redis Queue Activity Monitor |
+| **Repository Collaborators** | `mitrajit`, `Yadav036` | Invited repository evaluators |
+
+---
+
 ## 🏗️ System Architecture
 
 ### 1. High-Level Architecture Diagram
