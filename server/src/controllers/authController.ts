@@ -61,11 +61,12 @@ export const googleLogin = async (req: Request, res: Response): Promise<void> =>
         googleId,
         email,
         name,
-        avatar,
+        avatar: avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=00A859&color=fff&bold=true`,
         slackWebhookUrl: config.defaultSlackWebhookUrl,
       });
     } else {
-      if (avatar && !user.avatar) user.avatar = avatar;
+      if (name) user.name = name;
+      if (avatar) user.avatar = avatar;
       if (googleId && !user.googleId) user.googleId = googleId;
       await user.save();
     }
@@ -94,16 +95,41 @@ export const googleLogin = async (req: Request, res: Response): Promise<void> =>
  */
 export const demoLogin = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { email = 'oliver.brown@domain.io', name = 'Oliver Brown' } = req.body;
+    const { email = 'oliver.brown@domain.io', name } = req.body;
+    const cleanEmail = email.toLowerCase().trim();
 
-    let user = await User.findOne({ email: email.toLowerCase().trim() });
+    // Derive proper display name
+    let effectiveName = name;
+    if (!effectiveName || (effectiveName === 'Oliver Brown' && cleanEmail !== 'oliver.brown@domain.io')) {
+      const prefix = cleanEmail.split('@')[0] || 'User';
+      effectiveName = prefix
+        .replace(/[._-]/g, ' ')
+        .replace(/\b\w/g, (c: string) => c.toUpperCase())
+        .trim();
+    }
+
+    const isDefaultOliver = cleanEmail === 'oliver.brown@domain.io';
+    const defaultAvatar = isDefaultOliver
+      ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'
+      : `https://ui-avatars.com/api/?name=${encodeURIComponent(effectiveName)}&background=00A859&color=fff&bold=true`;
+
+    let user = await User.findOne({ email: cleanEmail });
     if (!user) {
       user = await User.create({
-        email: email.toLowerCase().trim(),
-        name,
-        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+        email: cleanEmail,
+        name: effectiveName,
+        avatar: defaultAvatar,
         slackWebhookUrl: config.defaultSlackWebhookUrl,
       });
+    } else {
+      // Update existing record if email is custom
+      if (effectiveName && (!isDefaultOliver || user.name === 'Oliver Brown')) {
+        user.name = effectiveName;
+      }
+      if (!isDefaultOliver && (user.avatar?.includes('unsplash') || !user.avatar)) {
+        user.avatar = defaultAvatar;
+      }
+      await user.save();
     }
 
     const token = generateToken(user._id.toString());

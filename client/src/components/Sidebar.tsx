@@ -48,20 +48,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
       </div>
 
-      {/* User Profile Card (Matches Figma Oliver Brown card) */}
+      {/* User Profile Card */}
       <div className="p-4 mx-3 my-3 bg-gray-50/80 rounded-2xl border border-gray-100 flex items-center justify-between">
         <div className="flex items-center gap-3 min-w-0">
           <img
-            src={user?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'}
+            src={user?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || user?.email?.split('@')[0] || 'User')}&background=00A859&color=fff&bold=true`}
             alt={user?.name || 'User'}
             className="w-10 h-10 rounded-full object-cover ring-2 ring-emerald-500/20"
           />
           <div className="min-w-0">
             <h4 className="text-sm font-semibold text-gray-900 truncate">
-              {user?.name || 'Oliver Brown'}
+              {user?.name || user?.email?.split('@')[0] || 'User'}
             </h4>
-            <p className="text-xs text-gray-500 truncate">
-              {user?.email || 'oliver.brown@domain.io'}
+            <p className="text-xs text-gray-500 truncate" title={user?.email}>
+              {user?.email || 'user@domain.io'}
             </p>
           </div>
         </div>
@@ -73,6 +73,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <LogOut className="w-4 h-4" />
         </button>
       </div>
+
 
       {/* Compose Button (Matches Figma Green CTA) */}
       <div className="px-4 mb-4">

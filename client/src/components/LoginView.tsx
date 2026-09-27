@@ -9,18 +9,31 @@ export const LoginView: React.FC = () => {
   const { demoLogin, loginWithGoogle } = useAuth();
   const [email, setEmail] = useState('oliver.brown@domain.io');
   const [password, setPassword] = useState('••••••••••••');
-  const [name] = useState('Oliver Brown');
+  const [name, setName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const deriveNameFromEmail = (emailStr: string): string => {
+    if (name.trim()) return name.trim();
+    const clean = emailStr.toLowerCase().trim();
+    if (clean === 'oliver.brown@domain.io') return 'Oliver Brown';
+    const prefix = clean.split('@')[0] || 'User';
+    return prefix
+      .replace(/[._-]/g, ' ')
+      .replace(/\b\w/g, (c) => c.toUpperCase())
+      .trim() || 'User';
+  };
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       setIsSubmitting(true);
-      await demoLogin(email, name);
+      const computedName = deriveNameFromEmail(email);
+      await demoLogin(email, computedName);
     } finally {
       setIsSubmitting(false);
     }
   };
+
 
   const handleGoogleSuccess = async (credentialResponse: any) => {
     if (!credentialResponse.credential) {
