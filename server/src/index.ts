@@ -49,8 +49,9 @@ try {
 }
 
 
-// Mount API Routes
+// Mount API Routes (Support both /api prefix and direct root paths)
 app.use('/api', apiRoutes);
+app.use(apiRoutes);
 
 // Health Check Endpoint
 app.get('/health', (req, res) => {
